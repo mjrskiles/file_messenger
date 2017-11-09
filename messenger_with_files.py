@@ -244,6 +244,13 @@ class Messenger:
 
 
 class Server( Messenger ):
+    """
+    Initialize the server to a standard Messenger state.
+    The purpose of having derived Server and Client classes
+    is basically to initialize 2 Messenger objects to the same
+    starting state.  Once initialized, both server and client
+    are virtually identical in this program.
+    """
     def __init__( self, listen_port ):
         super().__init__( listen_port )
         self.listen_sock = self.open_listener( self.port )
