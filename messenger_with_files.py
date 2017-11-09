@@ -75,36 +75,42 @@ class Messenger:
     SOCKET_POS = 0
     INSTANCE_POS = 1
     CLIENT_NAME_POS = 2
-    client_socks = {}
-    listen_sock = None
-    server_host = None
-    server_port = None
-    text_sock   = None
 
     def __init__( self, port ):
         self.port = port
+        self.open_socks = []
+        self.threads = []
+        self.listen_sock = None
+        self.server_host = None
+        self.server_port = None
+        self.text_sock   = None
 
     def open_listener( self, port ):
         """
         open a socket on the specified port and set it to listen.
         """
-        self.listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listen_sock.bind( ('localhost', int(port)) )
-        self.listen_sock.listen(5)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind( ('localhost', int(port)) )
+        sock.listen(5)
+        return sock
 
     def request_connection( self, host, port ):
-        self.text_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.text_sock.connect( (host, int(port)) )
-        if self.text_sock is None:
+        """
+        opens a socket and binds it to 'sock'
+        """
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect( (host, int(port)) )
+        if sock is None:
             print("Could not open socket.")
             sys.exit(1)
+        return sock
 
     def accept_connection( self ):
         #socket.accept() returns a (socket, ('host', port)) tuple
-        self.text_sock, addr = self.listen_sock.accept()
-        self.server_host = addr[0]
+        sock, addr = self.listen_sock.accept()
         print("Connection accepted, addr: " + str(addr))
+        return (sock, addr)
 
     def run_messenger( self ):
         msg_receiver = threading.Thread( target=self.get_messages )
@@ -119,25 +125,53 @@ class Messenger:
         self.clean_up()
 
     def get_input( self ):
-        for line in sys.stdin:
-            self.text_sock.send( line.encode() )
+        while True:
+            print("Enter an option ('m', 'f', 'x'):")
+            print("  (M)essage (send)")
+            print("  (F)ile (request)")
+            print(" e(X)it")
+            choice = sys.stdin.readline().rstrip('\n')
+            if choice == 'x':
+                break
+            elif choice == 'm':
+                print("Enter your message:")
+                line = sys.stdin.readline()
+                self.send_text( line )
+            elif choice == 'f':
+                print("Which file do you want?")
+                file_name = sys.stdin.readline().rstrip('\n')
+                self.get_file( file_name )
         self.clean_up()
 
+    def send_text( self, text ):
+        self.text_sock.send( text.encode() )
+
+    def get_file( self, file_name ):
+        file_conn = threading.Thread( target=self.request_file, args=(file_name) )
+        self.threads.append(file_conn)
+        file_conn.start()
+
+    def request_file( self, file_name ):
+        file_sock = self.request_connection( self.server_host, self.server_port )
+
     def clean_up( self ):
-        pass
+        self.text_sock.close()
+        os._exit(0)
+
 
 class Server( Messenger ):
     def __init__( self, listen_port ):
         super().__init__( listen_port )
-        self.open_listener( self.port )
-        self.accept_connection()
+        self.listen_sock = self.open_listener( self.port )
+        self.text_sock, addr = self.accept_connection()
+        self.server_host = addr[0]
         file_req_port = self.text_sock.recv( 4 ).decode()
         print("Client sent back listen port " + file_req_port + ".")
         try:
             int(file_req_port)
         except ValueError:
             print("The client did not send back a valid port number.")
-            os.exit(1)
+            sys.exit(1)
         self.server_port = file_req_port
 
 
@@ -146,10 +180,10 @@ class Client( Messenger ):
         super().__init__( listen_port )
         self.server_host = host
         self.server_port = port
-        self.request_connection( self.server_host, self.server_port )
+        self.text_sock = self.request_connection( self.server_host, self.server_port )
         print("Connection accepted.  Sending listen port " + listen_port + ".")
         self.text_sock.send( listen_port.encode() )
-        self.open_listener( listen_port )
+        self.listen_sock = self.open_listener( listen_port )
 
 
 def main():
