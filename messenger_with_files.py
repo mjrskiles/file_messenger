@@ -71,15 +71,8 @@ def parse_opts( argv, argc ):
 
 class Messenger:
 
-    #The client_socks dict is a dictionary with an client id int
-    #as the key, followed by a list in form [socket, thread instance, client username]
-    SOCKET_POS = 0
-    INSTANCE_POS = 1
-    CLIENT_NAME_POS = 2
-
     def __init__( self, port ):
         self.port = port
-        self.open_socks = []
         self.threads = []
         self.listen_sock = None
         self.server_host = None
@@ -111,6 +104,10 @@ class Messenger:
         return (sock, addr)
 
     def run_messenger( self ):
+        """
+        Start the threads to receive messages and listen for file requests.
+        Then get user input in the main thread.
+        """
         msg_receiver = threading.Thread( target=self.get_messages )
         msg_receiver.start()
         self.threads.append( msg_receiver )
@@ -120,6 +117,9 @@ class Messenger:
         self.get_input()
 
     def get_messages( self ):
+        """
+        Get messages from the other end
+        """
         message = self.text_sock.recv( 4096 )
         while message:
             print( message.decode(), end='' )
@@ -127,6 +127,9 @@ class Messenger:
         self.clean_up()
 
     def get_input( self ):
+        """
+        Get user input from stdin and decide what to do with it.
+        """
         while True:
             print("Enter an option ('m', 'f', 'x'):")
             print("  (M)essage (send)")
@@ -149,8 +152,12 @@ class Messenger:
         self.text_sock.send( text.encode() )
 
     def get_file( self, file_name ):
-        print(type(file_name))
-        print(file_name)
+        """
+        Open a new thread to request a file so that we can get back
+        to reading stdin on this thread.
+        """
+#        print(type(file_name))
+#        print(file_name)
         #There needs to be a comma after file_name because args expects a tuple!!!
         file_conn = threading.Thread( target=self.request_file, args=(file_name,) )
         self.threads.append(file_conn)
@@ -190,6 +197,9 @@ class Messenger:
         file.close()
 
     def serve_files( self ):
+        """
+        Gets connections for file requests.
+        """
         print("Opening file server...")
         while True:
             sock, addr = self.accept_connection()
@@ -198,6 +208,9 @@ class Messenger:
             self.threads.append(file_server)
 
     def handle_request( sock ):
+        """
+        Get the requested file name and send the file if it exists.
+        """
         msg_bytes= sock.recv(1024)
         # convert the message into a string, which is the name of the desired file
         file_name= msg_bytes.decode()
@@ -218,6 +231,9 @@ class Messenger:
             sock.close()
 
     def send_file( sock, file_size, file ):
+        """
+        Send the file to the other end.
+        """
         print( 'File size is ' + str(file_size) )
         file_size_bytes= struct.pack( '!L', file_size )
         # send the number of bytes in the file
