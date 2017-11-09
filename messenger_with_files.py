@@ -175,7 +175,7 @@ class Messenger:
         except:
             print("Could not open connection to file server.")
         finally:
-            if file_sock is not None:
+            if file_sock:
                 file_sock.close()
 
     def receive_file( sock, filename ):
