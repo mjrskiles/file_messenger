@@ -254,8 +254,6 @@ class Messenger:
     def clean_up( self ):
         self.text_sock.close()
         self.listen_sock.close()
-        for sock in self.open_socks:
-            sock.close()
         os._exit(0)
 
 
