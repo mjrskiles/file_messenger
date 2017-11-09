@@ -83,10 +83,13 @@ class Messenger:
         """
         open a socket on the specified port and set it to listen.
         """
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind( ('localhost', int(port)) )
-        sock.listen(5)
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind( ('localhost', int(port)) )
+            sock.listen(5)
+        except:
+            self.clean_up()
         return sock
 
     def request_connection( self, host, port ):
